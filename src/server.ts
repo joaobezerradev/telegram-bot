@@ -6,5 +6,7 @@ app.listen(process.env.PORT || 5000);
 
 schedule('*/4 * * * * *', () => {
   // eslint-disable-next-line no-console
-  axios.get('http://localhost:5000').catch(e => console.log(e));
+  axios
+    .get('https://telegram-bot-signal.herokuapp.com')
+    .catch(e => console.log(e));
 });
