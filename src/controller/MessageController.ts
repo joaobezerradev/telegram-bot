@@ -44,101 +44,103 @@ class MessageController {
 
     const data = new Date();
 
-    function newText(): string {
-      const numOfLines = text?.split('\n');
-      let ativo: string;
-      let expiracao: string;
-      let direcao: string;
-      let horarioDeEntrada: string;
+    const signals: String[] = text.split('/\t/');
+    signals.forEach(async x => {
+      function newText(): string {
+        const numOfLines = x.split('\n');
+        let ativo: string;
+        let expiracao: string;
+        let direcao: string;
+        let horarioDeEntrada: string;
 
-      if (numOfLines[0].startsWith('2')) {
-        ativo = numOfLines[3].replace('Ativo: ', '');
-        direcao = numOfLines[5].includes('Call') ? 'Call' : 'Put';
-        expiracao = numOfLines[6].substring(11, 13);
-        if (numOfLines[7].includes('1')) {
-          const time = add(data, { minutes: 1 });
-          const hour = time.getHours().toString();
-          const min = time.getMinutes().toString();
-          horarioDeEntrada = `${hour}:${min}`.toString();
+        if (numOfLines[0].startsWith('2')) {
+
+          ativo = numOfLines[3].replace('Ativo: ', '');
+          direcao = numOfLines[5].includes('Call') ? 'Call' : 'Put';
+          expiracao = numOfLines[6].substring(11, 13);
+          if (numOfLines[7].includes('1')) {
+            const time = add(data, { minutes: 1 });
+            const hour = time.getHours().toString();
+            const min = time.getMinutes().toString();
+            horarioDeEntrada = `${hour}:${min}`.toString();
+          } else {
+            const time = add(data, { minutes: 5 });
+            // eslint-disable-next-line prefer-const
+            const hour = time.getHours().toString();
+            let min = time.getMinutes().toString();
+
+            min = (Math.ceil(Number(min) / 5) * 5).toString();
+
+            if (Number(min) < 10) {
+              min = '0' + min
+            }
+            horarioDeEntrada = `${hour}:${min}`.toString();
+          }
         } else {
-          const time = add(data, { minutes: 5 });
-          // eslint-disable-next-line prefer-const
-          const hour = time.getHours().toString();
-          let min = time.getMinutes().toString();
+          ativo = numOfLines[2].replace('Ativo: ', '');
+          direcao = numOfLines[4].includes('Call') ? 'Call' : 'Put';
+          if (numOfLines[6].includes('1')) {
+            const time = add(data, { minutes: 1 });
+            const hour = time.getHours().toString();
+            let min = time.getMinutes().toString();
+            if (Number(min) < 10) {
+              min = '0' + min;
+            }
+            horarioDeEntrada = `${hour}:${min}`.toString();
+          } else {
+            const time = data;
+            // eslint-disable-next-line prefer-const
+            const hour = time.getHours().toString();
+            let min = time.getMinutes().toString();
+            min = (Math.ceil(Number(min) / 5) * 5).toString();
 
-          min = (Math.ceil(Number(min)/5)*5).toString();
-
-          if (Number(min)<10){
-            min = '0'+min
+            if (Number(min) < 10) {
+              min = '0' + min
+            }
+            horarioDeEntrada = `${hour}:${min}`.toString();
           }
-          horarioDeEntrada = `${hour}:${min}`.toString();
+          expiracao = numOfLines[5].substring(11, 13);
         }
-      } else {
-        ativo = numOfLines[2].replace('Ativo: ', '');
-        direcao = numOfLines[4].includes('Call') ? 'Call' : 'Put';
-        if (numOfLines[6].includes('1')) {
-          const time = add(data, { minutes: 1 });
-          const hour = time.getHours().toString();
-          let min = time.getMinutes().toString();
-          if (Number(min) < 10){
-            min = '0' + min;
-          }
-          horarioDeEntrada = `${hour}:${min}`.toString();
-        } else {
-          const time = add(data, { minutes: 5 });
-          // eslint-disable-next-line prefer-const
-          const hour = time.getHours().toString();
-          let min = time.getMinutes().toString();
-          min = (Math.ceil(Number(min)/5)*5).toString();
 
-          if (Number(min)<10){
-            min = '0'+min
-          }
-          horarioDeEntrada = `${hour}:${min}`.toString();
-        }
-        expiracao = numOfLines[5].substring(11, 13);
+        return `${ativo} ${horarioDeEntrada} M${expiracao}${direcao.toUpperCase()}`;
       }
-
-      return `${ativo} ${horarioDeEntrada} M${expiracao}${direcao.toUpperCase()}`;
-    }
-
-    const alreadyExists = await Database.findOne({
-      reply_to_message_id,
-      chat_id,
-    });
-
-    if (
-      !alreadyExists &&
-      text &&
-      !text.startsWith('/') &&
-      title &&
-      title === 'Formatador de sinais'
-    ) {
-      const sinal = await Database.create({
-        chat_id,
-        text: newText(),
+      const alreadyExists = await Database.findOne({
         reply_to_message_id,
-        wasSended: false,
-        data,
+        chat_id,
       });
 
-      if (!sinal.wasSended) {
-        await api.post('sendMessage', null, {
-          params: {
-            chat_id,
-            text: sinal.text,
-            reply_to_message_id,
-          },
+      if (
+        !alreadyExists &&
+        text &&
+        !text.startsWith('/') &&
+        title &&
+        title === 'Formatador de sinais'
+      ) {
+        const sinal = await Database.create({
+          chat_id,
+          text: newText(),
+          reply_to_message_id,
+          wasSended: false,
+          data,
         });
-        await Database.findByIdAndUpdate(
-          sinal,
-          { wasSended: true },
-          { new: true, useFindAndModify: false },
-        );
-      }
-      // req.io.emit('text', text);
-    }
 
+        if (!sinal.wasSended) {
+          await api.post('sendMessage', null, {
+            params: {
+              chat_id,
+              text: sinal.text,
+              reply_to_message_id,
+            },
+          });
+          await Database.findByIdAndUpdate(
+            sinal,
+            { wasSended: true },
+            { new: true, useFindAndModify: false },
+          );
+        }
+
+      }
+    });
     return res.json({ success: true });
   }
 }
